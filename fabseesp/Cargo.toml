@@ -1,0 +1,33 @@
+[package]
+edition      = "2024"
+name         = "fabseesp"
+rust-version = "1.93"
+version      = "0.1.0"
+
+[dependencies]
+esp-hal = { version = "1.0", features = ["defmt", "esp32s2", "unstable"] }
+esp-rtos = { version = "0.2.0", features = [
+  "defmt",
+  "embassy",
+  "esp32s2",
+] }
+defmt                  = "1.0.1"
+esp-bootloader-esp-idf = { version = "0.4.0", features = ["defmt", "esp32s2"] }
+embassy-executor = { version = "0.9.1", features = ["defmt"] }
+embassy-time = { version = "0.5.0", features = ["defmt"] }
+esp-backtrace = { version = "0.18.1", features = [
+  "defmt",
+  "esp32s2",
+  "panic-handler",
+] }
+esp-println = { version = "0.16.1", features = ["defmt-espflash", "esp32s2"] }
+
+[profile.dev]
+opt-level = "s"
+debug     = "line-tables-only"
+
+[profile.release]
+codegen-units    = 1
+debug            = "line-tables-only"
+lto              = true
+opt-level        = 's'
