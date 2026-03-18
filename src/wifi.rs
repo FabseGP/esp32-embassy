@@ -1,3 +1,4 @@
+use alloc::borrow::ToOwned;
 use defmt::{error, info};
 use embassy_executor::{Spawner, task};
 use embassy_futures::select::{Either, select};
@@ -22,14 +23,11 @@ use static_cell::StaticCell;
 
 static STACK_RESOURCES: StaticCell<StackResources<3>> = StaticCell::new();
 
-const SSID: &str = "WiFimodem-0CCC-2GHz";
-const PASSWORD: &str = "VAM21K48";
-
 pub async fn start_wifi(wifi: WIFI<'static>, rng: Rng, spawner: &Spawner) -> Stack<'static> {
     let station_config = Config::Station(
         StationConfig::default()
-            .with_ssid(SSID)
-            .with_password(PASSWORD.into()),
+            .with_ssid(env!("WIFI_SSID"))
+            .with_password(env!("WIFI_PASS").to_owned()),
     );
 
     let (wifi_controller, interfaces) = new_wifi(

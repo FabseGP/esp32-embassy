@@ -1,7 +1,22 @@
+use dotenvy::dotenv;
+use std::env;
+
 fn main() {
     linker_be_nice();
+    load_env();
     println!("cargo:rustc-link-arg=-Tdefmt.x");
     println!("cargo:rustc-link-arg=-Tlinkall.x");
+}
+
+fn load_env() {
+    dotenv().ok();
+    println!("cargo:rerun-if-changed=.env");
+
+    let ssid = env::var("WIFI_SSID").expect("WIFI_SSID not set in .env");
+    let pass = env::var("WIFI_PASS").expect("WIFI_PASS not set in .env");
+
+    println!("cargo:rustc-env=WIFI_SSID={}", ssid);
+    println!("cargo:rustc-env=WIFI_PASS={}", pass);
 }
 
 fn linker_be_nice() {

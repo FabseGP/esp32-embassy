@@ -67,6 +67,9 @@ embassy-futures = { version = "0.1.2", features = ["defmt"] }
 trouble-host = { version = "0.6.0", features = ["gatt", "defmt", "derive"], optional = true }
 bt-hci = { version = "0.8.0", features = ["defmt"], optional = true }
 
+[build-dependencies]
+dotenvy = "0.15.7"
+
 [profile.dev]
 opt-level = "s"
 debug = "line-tables-only"
