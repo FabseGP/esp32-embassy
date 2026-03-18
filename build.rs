@@ -62,8 +62,18 @@ fn linker_be_nice() {
         std::process::exit(0);
     }
 
-    println!(
-        "cargo:rustc-link-arg=-Wl,--error-handling-script={}",
-        std::env::current_exe().unwrap().display()
-    );
+    if std::env::var("TARGET")
+        .unwrap_or_default()
+        .contains("xtensa")
+    {
+        println!(
+            "cargo:rustc-link-arg=-Wl,--error-handling-script={}",
+            std::env::current_exe().unwrap().display()
+        );
+    } else {
+        println!(
+            "cargo:rustc-link-arg=--error-handling-script={}",
+            std::env::current_exe().unwrap().display()
+        );
+    }
 }

@@ -1,17 +1,28 @@
-[target.xtensa-esp32s2-none-elf]
-runner = "espflash flash --monitor --chip esp32s2 --log-format defmt"
+[alias]
+run-esp32c6 = "run --release --target riscv32imac-unknown-none-elf --config=./.cargo/config_esp32c6.toml --features=esp32c6"
+run-esp32 = "run --release --target xtensa-esp32-none-elf --config=./.cargo/config_esp32.toml --features=esp32"
+run-esp32s2 = "run --release --target xtensa-esp32s2-none-elf --config=./.cargo/config_esp32s2.toml --features=esp32s2"
+build-esp32 = "build --release --target xtensa-esp32-none-elf --config=./.cargo/config_esp32.toml --features=esp32"
+build-esp32s2 = "build --release --target xtensa-esp32s2-none-elf --config=./.cargo/config_esp32s2.toml --features=esp32s2"
+clippy-esp32 = "clippy --target xtensa-esp32-none-elf --config=./.cargo/config_esp32.toml --features=esp32"
+clippy-esp32s2 = "clippy --target xtensa-esp32s2-none-elf --config=./.cargo/config_esp32s2.toml --features=esp32s2"
 
-[env]
-DEFMT_LOG="info"
+[target.'cfg(target_arch = "riscv32")']
+runner = "espflash flash --monitor --log-format defmt"
+rustflags = [
+  "-C", "force-frame-pointers",
+  "-Z", "stack-protector=all",
+]
 
-[build]
+[target.'cfg(target_arch = "xtensa")']
+runner = "espflash flash --monitor --log-format defmt"
 rustflags = [
   "-C", "link-arg=-nostartfiles",
   "-Z", "stack-protector=all",
 ]
 
-target = "xtensa-esp32s2-none-elf"
+[env]
+DEFMT_LOG="info"
 
 [unstable]
 build-std = ["alloc", "core"]
-#build-std-features = ["panic_immediate_abort"]

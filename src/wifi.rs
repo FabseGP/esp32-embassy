@@ -1,34 +1,43 @@
-use defmt::info;
+use defmt::{error, info};
 use embassy_executor::{Spawner, task};
-use embassy_net::{Config as NetConfig, DhcpConfig, Runner, Stack, StackResources, new as new_net};
+use embassy_futures::select::{Either, select};
+use embassy_net::{
+    Config as NetConfig, DhcpConfig, Runner, Stack, StackResources,
+    dns::DnsSocket,
+    new as new_net,
+    tcp::client::{TcpClient, TcpClientState},
+};
 use embassy_time::{Duration, Timer};
 use esp_backtrace as _;
-use esp_hal::peripherals::WIFI;
-use esp_hal::rng::Rng;
-use esp_println as _;
-use esp_radio::init;
-use esp_radio::wifi::Config;
-use esp_radio::{
-    Controller,
-    wifi::{
-        ClientConfig, ModeConfig, ScanConfig, WifiController, WifiDevice, WifiEvent, WifiStaState,
-        new as new_wifi, sta_state,
-    },
+use esp_hal::{peripherals::WIFI, rng::Rng};
+use esp_radio::wifi::{
+    AccessPointStationEventInfo, Config, ControllerConfig, Interface, WifiController,
+    new as new_wifi, sta::StationConfig,
+};
+use reqwless::{
+    client::HttpClient,
+    request::{Method, RequestBuilder},
 };
 use static_cell::StaticCell;
 
-static RADIO_CELL: StaticCell<Controller<'static>> = StaticCell::new();
 static STACK_RESOURCES: StaticCell<StackResources<3>> = StaticCell::new();
 
 const SSID: &str = "WiFimodem-0CCC-2GHz";
 const PASSWORD: &str = "VAM21K48";
 
 pub async fn start_wifi(wifi: WIFI<'static>, rng: Rng, spawner: &Spawner) -> Stack<'static> {
-    let radio_init = RADIO_CELL.init(init().expect("Failed to initialize Wi-Fi/BLE controller"));
+    let station_config = Config::Station(
+        StationConfig::default()
+            .with_ssid(SSID)
+            .with_password(PASSWORD.into()),
+    );
 
-    let (wifi_controller, interfaces) = new_wifi(radio_init, wifi, Config::default())
-        .expect("Failed to initialize Wi-Fi controller");
-    let wifi_interface = interfaces.sta;
+    let (wifi_controller, interfaces) = new_wifi(
+        wifi,
+        ControllerConfig::default().with_initial_config(station_config),
+    )
+    .expect("Failed to initialize Wi-Fi controller");
+    let wifi_interface = interfaces.station;
 
     let net_seed = u64::from(rng.random()) | ((u64::from(rng.random())) << 32);
 
@@ -46,52 +55,57 @@ pub async fn start_wifi(wifi: WIFI<'static>, rng: Rng, spawner: &Spawner) -> Sta
 
 async fn wait_for_connection(stack: Stack<'_>) {
     info!("Waiting for link to be up");
-    loop {
-        if stack.is_link_up() {
-            break;
-        }
-        Timer::after(Duration::from_millis(500)).await;
-    }
+    stack.wait_link_up().await;
 
     info!("Waiting to get IP address...");
-    loop {
-        if let Some(config) = stack.config_v4() {
-            info!("Got IP: {}", config.address);
-            break;
-        }
-        Timer::after(Duration::from_millis(500)).await;
-    }
+    stack.wait_config_up().await;
+    info!("Got IP: {}", stack.config_v4().unwrap().address);
 }
 
 #[task]
-pub async fn connection(mut controller: WifiController<'static>) {
-    info!("Device capabilities: {:?}", controller.capabilities());
+async fn connection(mut controller: WifiController<'static>) {
+    info!("start connection task");
+
     loop {
-        if sta_state() == WifiStaState::Connected {
-            controller.wait_for_event(WifiEvent::StaDisconnected).await;
-            Timer::after(Duration::from_millis(5000)).await;
-        }
-        if !matches!(controller.is_started(), Ok(true)) {
-            let client_config = ModeConfig::Client(
-                ClientConfig::default()
-                    .with_ssid(SSID.into())
-                    .with_password(PASSWORD.into()),
-            );
-            controller.set_config(&client_config).unwrap();
-            controller.start_async().await.unwrap();
-
-            let scan_config = ScanConfig::default().with_max(10);
-            let result = controller
-                .scan_with_config_async(scan_config)
-                .await
-                .unwrap();
-            for ap in result {
-                info!("{:?}", ap);
-            }
-        }
-
         match controller.connect_async().await {
-            Ok(()) => info!("Wifi connected!"),
+            Ok(_) => loop {
+                let info = select(
+                    controller.wait_for_disconnect_async(),
+                    controller.wait_for_access_point_connected_event_async(),
+                )
+                .await;
+
+                match info {
+                    Either::First(station_disconnected) => {
+                        if let Ok(station_disconnected) = station_disconnected {
+                            info!("Station disconnected: {:?}", station_disconnected);
+                            break;
+                        }
+                    }
+                    Either::Second(event) => {
+                        if let Ok(event) = event {
+                            match event {
+                                AccessPointStationEventInfo::Connected(
+                                    access_point_station_connected_info,
+                                ) => {
+                                    info!(
+                                        "Station connected: {:?}",
+                                        access_point_station_connected_info
+                                    );
+                                }
+                                AccessPointStationEventInfo::Disconnected(
+                                    access_point_station_disconnected_info,
+                                ) => {
+                                    info!(
+                                        "Station disconnected: {:?}",
+                                        access_point_station_disconnected_info
+                                    );
+                                }
+                            }
+                        }
+                    }
+                }
+            },
             Err(err) => {
                 info!("Failed to connect to wifi: {:?}", err);
                 Timer::after(Duration::from_millis(5000)).await;
@@ -101,6 +115,28 @@ pub async fn connection(mut controller: WifiController<'static>) {
 }
 
 #[task]
-pub async fn net_task(mut runner: Runner<'static, WifiDevice<'static>>) {
+async fn net_task(mut runner: Runner<'static, Interface<'static>>) {
     runner.run().await;
+}
+
+async fn access_website(stack: Stack<'_>) {
+    let dns = DnsSocket::new(stack);
+    let tcp_state = TcpClientState::<1, 4096, 4096>::new();
+    let tcp = TcpClient::new(stack, &tcp_state);
+
+    let mut client = HttpClient::new(&tcp, &dns);
+    let mut buffer = [0u8; 4096];
+    let http = match client
+        .request(Method::POST, "https://jsonplaceholder.typicode.com/posts/1")
+        .await
+    {
+        Ok(request) => request,
+        Err(err) => {
+            error!("Failed to create request: {}", err);
+            return;
+        }
+    };
+    if let Err(err) = http.basic_auth("test", "test").send(&mut buffer).await {
+        error!("Failed to send request: {}", err);
+    }
 }

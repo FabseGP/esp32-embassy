@@ -1,26 +1,30 @@
-use embassy_executor::task;
+use embassy_executor::{Spawner, task};
 use embassy_net::Stack;
 use embassy_time::Duration;
 use picoserve::{
     AppBuilder, AppRouter, Config, Router, Server, Timeouts, make_static, response::File, routing,
 };
 
-pub const WEB_TASK_POOL_SIZE: usize = 2;
+use crate::led::led_handler;
 
-pub struct Application;
+const WEB_TASK_POOL_SIZE: usize = 1;
+
+struct Application;
 
 impl AppBuilder for Application {
     type PathRouter = impl routing::PathRouter;
 
     fn build_app(self) -> Router<Self::PathRouter> {
-        Router::new().route(
-            "/",
-            routing::get_service(File::html(include_str!("index.html"))),
-        )
+        Router::new()
+            .route(
+                "/",
+                routing::get_service(File::html(include_str!("index.html"))),
+            )
+            .route("/led", routing::post(led_handler))
     }
 }
 
-pub struct WebApp {
+struct WebApp {
     pub router: &'static Router<<Application as AppBuilder>::PathRouter>,
     pub config: &'static Config,
 }
@@ -44,8 +48,15 @@ impl Default for WebApp {
     }
 }
 
+pub fn setup_server(spawner: Spawner, stack: Stack<'static>) {
+    let web_app = WebApp::default();
+    for id in 0..WEB_TASK_POOL_SIZE {
+        spawner.must_spawn(web_task(id, stack, web_app.router, web_app.config));
+    }
+}
+
 #[task(pool_size = WEB_TASK_POOL_SIZE)]
-pub async fn web_task(
+async fn web_task(
     task_id: usize,
     stack: Stack<'static>,
     router: &'static AppRouter<Application>,
