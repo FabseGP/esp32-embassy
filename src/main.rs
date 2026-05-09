@@ -1,7 +1,6 @@
 #![feature(type_alias_impl_trait)]
 #![feature(impl_trait_in_assoc_type)]
 #![feature(stmt_expr_attributes)]
-#![feature(cfg_select)]
 #![no_std]
 #![no_main]
 
@@ -11,7 +10,7 @@ use embassy_executor::Spawner;
 use esp_alloc::heap_allocator;
 use esp_backtrace as _;
 use esp_hal::{
-    Config, clock::CpuClock, init, interrupt::software::SoftwareInterruptControl, ram,
+    Config, clock::CpuClock, init, interrupt::software::SoftwareInterruptControl, ram, rng::Rng,
     timer::timg::TimerGroup,
 };
 use esp_println as _;
@@ -38,17 +37,19 @@ cfg_select! {
         };
     }
     feature = "esp32" => {
-        mod bluetooth;
+        mod motors;
+        use crate::{server::setup_server, wifi::start_wifi, motors::setup_motors};
+        /*mod bluetooth;
         use esp_hal::rng::Rng;
-        use crate::{bluetooth::start_bluetooth, led::setup_led, server::setup_server, wifi::start_wifi};
-    }
+        use crate::{bluetooth::start_bluetooth, led::setup_led, server::setup_server, wifi::start_wifi};*/
+          }
     _ => {}
 }
 
 #[main]
 async fn main(spawner: Spawner) {
     heap_allocator!(#[ram(reclaimed)] size: 64 * 1024);
-    heap_allocator!(size: 36 * 1024);
+    heap_allocator!(size: 32 * 1024);
 
     let chip_config = Config::default().with_cpu_clock(CpuClock::max());
     let peripherals = init(chip_config);
@@ -71,11 +72,16 @@ async fn main(spawner: Spawner) {
             );
         }
         feature = "esp32" => {
+            /*
             setup_led(peripherals.GPIO2, spawner);
             let rng = Rng::new();
             let stack = start_wifi(peripherals.WIFI, rng, &spawner).await;
             setup_server(spawner, stack);
-            start_bluetooth(peripherals.BT).await;
+            start_bluetooth(peripherals.BT).await;*/
+            setup_motors(peripherals.LEDC, peripherals.GPIO32, peripherals.GPIO33, spawner);
+            let rng = Rng::new();
+            let stack = start_wifi(peripherals.WIFI, rng, &spawner).await;
+            setup_server(spawner, stack);
         }
         _ => {}
     }

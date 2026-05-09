@@ -8,7 +8,7 @@ use embassy_net::{
     new as new_net,
     tcp::client::{TcpClient, TcpClientState},
 };
-use embassy_time::{Duration, Timer};
+use embassy_time::Timer;
 use esp_backtrace as _;
 use esp_hal::{peripherals::WIFI, rng::Rng};
 use esp_radio::wifi::{
@@ -43,8 +43,8 @@ pub async fn start_wifi(wifi: WIFI<'static>, rng: Rng, spawner: &Spawner) -> Sta
     let resources = STACK_RESOURCES.init(StackResources::new());
     let (stack, runner) = new_net(wifi_interface, config, resources, net_seed);
 
-    spawner.spawn(connection(wifi_controller)).ok();
-    spawner.spawn(net_task(runner)).ok();
+    spawner.spawn(connection(wifi_controller).unwrap());
+    spawner.spawn(net_task(runner).unwrap());
 
     wait_for_connection(stack).await;
 
@@ -106,7 +106,7 @@ async fn connection(mut controller: WifiController<'static>) {
             },
             Err(err) => {
                 info!("Failed to connect to wifi: {:?}", err);
-                Timer::after(Duration::from_millis(5000)).await;
+                Timer::after_secs(5).await;
             }
         }
     }

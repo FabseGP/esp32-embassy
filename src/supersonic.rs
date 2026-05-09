@@ -1,6 +1,6 @@
 use embassy_executor::{Spawner, task};
 use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, mutex::Mutex};
-use embassy_time::{Duration, Instant, Timer};
+use embassy_time::{Instant, Timer};
 use esp_hal::{
     gpio::{Input, InputConfig, Level, Output, OutputConfig, Pull},
     peripherals::{GPIO18, GPIO19},
@@ -22,7 +22,7 @@ pub fn setup_ultrasonic(trigger_pin: GPIO18<'static>, echo_pin: GPIO19<'static>,
     let trig = Output::new(trigger_pin, Level::Low, OutputConfig::default());
     let echo = Input::new(echo_pin, InputConfig::default().with_pull(Pull::Down));
 
-    spawner.spawn(ultrasonic_task(trig, echo)).ok();
+    spawner.spawn(ultrasonic_task(trig, echo).unwrap());
 }
 
 #[task]
@@ -30,9 +30,9 @@ async fn ultrasonic_task(mut trig: Output<'static>, mut echo: Input<'static>) {
     let mut current_state = IntrusionStates::Safe;
     loop {
         trig.set_low();
-        Timer::after(Duration::from_micros(2)).await;
+        Timer::after_micros(2).await;
         trig.set_high();
-        Timer::after(Duration::from_micros(10)).await;
+        Timer::after_micros(10).await;
         trig.set_low();
 
         echo.wait_for_high().await;
@@ -63,6 +63,6 @@ async fn ultrasonic_task(mut trig: Output<'static>, mut echo: Input<'static>) {
 
         current_state = new_state;
 
-        Timer::after(Duration::from_millis(60)).await;
+        Timer::after_millis(50).await;
     }
 }

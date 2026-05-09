@@ -1,31 +1,62 @@
+<style>
+  .btn-on,
+  .btn-off,
+  .slider {
+    margin: 5px 0;
+  }
+</style>
+
 <div class="button-container">
-  <button class="btn-on" onclick="sendRequest(true)">Turn on LED</button>
-  <button class="btn-off" onclick="sendRequest(false)">Turn off LED</button>
+  <button class="btn-on" data-endpoint="/led" data-value="1">Turn LED on</button>
+  <button class="btn-off" data-endpoint="/led" data-value="0">Turn LED off</button>
+</div>
+
+<div class="slidecontainer">
+  <input type="range" min="50" max="130" value="90" class="slider" id="servoRange" data-endpoint="/servo"
+    data-debounce="100">
+  <p>Servo value: <span id="servo">90</span></p>
+</div>
+
+<div class="slidecontainer">
+  <input type="range" min="0" max="100" value="0" class="slider" id="motorRange" data-endpoint="/motor"
+    data-debounce="100">
+  <p>Motor value: <span id="motor">0</span></p>
 </div>
 
 <script>
-  function sendRequest(is_on) {
-    const url = 'http://192.168.0.193/led';
-
-    fetch(url, {
+  function sendControl(endpoint, value) {
+    fetch(`http://192.168.0.193${endpoint}`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({is_on})
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({value})
     })
-      .then(response => {
-        if (response.ok) {
-          return response.json();
-        }
-        throw new Error('Network response was not ok');
-      })
-      .then(data => {
-        console.log('Success:', data);
-      })
-      .catch(error => {
-        console.error('Error:', error);
-        alert('Failed to send the request');
-      });
+      .then(r => r.ok ? r.json() : Promise.reject())
+      .then(d => console.log('OK:', d))
+      .catch(() => console.error('Failed:', endpoint));
   }
+
+  document.querySelectorAll('button[data-endpoint]').forEach(btn => {
+    btn.onclick = () => {
+      const val = btn.dataset.value === "1";
+      sendControl(btn.dataset.endpoint, val);
+    };
+  });
+
+  document.querySelectorAll('input.slider').forEach(slider => {
+    const display = document.getElementById(slider.id.replace('Range', ''));
+    const debounceMs = parseInt(slider.dataset.debounce);
+    let timeout;
+    display.textContent = slider.value;
+    slider.oninput = () => {
+      display.textContent = slider.value;
+      if (debounceMs > 0) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => {
+          sendControl(slider.dataset.endpoint, Number(slider.value));
+        }, debounceMs);
+      } else {
+        sendControl(slider.dataset.endpoint, Number(slider.value));
+      }
+    };
+  });
 </script>

@@ -1,7 +1,7 @@
 use defmt::info;
 use embassy_executor::{Spawner, task};
 use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, mutex::Mutex};
-use embassy_time::{Duration, Timer};
+use embassy_time::Timer;
 use esp_hal::{
     Blocking,
     analog::adc::{Adc, AdcConfig, AdcPin, Attenuation},
@@ -22,26 +22,26 @@ pub static JOYSTICK_DATA: Mutex<CriticalSectionRawMutex, JoystickData> =
 pub fn setup_joystick(
     vrx_pin: GPIO5<'static>,
     vry_pin: GPIO6<'static>,
-    adc: ADC1<'static>,
+    adc_peripheral: ADC1<'static>,
     button_pin: GPIO7<'static>,
     spawner: Spawner,
 ) {
-    let mut adc2_config = AdcConfig::new();
-    let vrx = adc2_config.enable_pin(vrx_pin, Attenuation::_11dB);
-    let vry = adc2_config.enable_pin(vry_pin, Attenuation::_11dB);
+    let mut adc_config = AdcConfig::new();
+    let vrx = adc_config.enable_pin(vrx_pin, Attenuation::_11dB);
+    let vry = adc_config.enable_pin(vry_pin, Attenuation::_11dB);
 
-    let adc2 = Adc::new(adc, adc2_config);
+    let adc = Adc::new(adc_peripheral, adc_config);
 
     let btn = Input::new(button_pin, InputConfig::default().with_pull(Pull::Up));
 
-    spawner.spawn(joystick_task(vrx, vry, adc2, btn)).ok();
+    spawner.spawn(joystick_task(vrx, vry, adc, btn).unwrap());
 }
 
 #[task]
 async fn joystick_task(
     mut vrx: AdcPin<GPIO5<'static>, ADC1<'static>>,
     mut vry: AdcPin<GPIO6<'static>, ADC1<'static>>,
-    mut adc2: Adc<'static, ADC1<'static>, Blocking>,
+    mut adc: Adc<'static, ADC1<'static>, Blocking>,
     btn: Input<'static>,
 ) {
     let mut prev_vrx: u16 = 0;
@@ -50,10 +50,10 @@ async fn joystick_task(
     let mut print_vals = true;
 
     loop {
-        let Ok(vry_value): Result<u16, _> = block!(adc2.read_oneshot(&mut vry)) else {
+        let Ok(vry_value): Result<u16, _> = block!(adc.read_oneshot(&mut vry)) else {
             continue;
         };
-        let Ok(vrx_value): Result<u16, _> = block!(adc2.read_oneshot(&mut vrx)) else {
+        let Ok(vrx_value): Result<u16, _> = block!(adc.read_oneshot(&mut vrx)) else {
             continue;
         };
 
@@ -83,6 +83,6 @@ async fn joystick_task(
             };
         }
 
-        Timer::after(Duration::from_millis(50)).await;
+        Timer::after_millis(50).await;
     }
 }

@@ -55,7 +55,7 @@ pub async fn setup_display_async(i2c_bus: I2c<'static, Async>, spawner: Spawner)
     display.clear_buffer();
     display.flush().await.unwrap();
 
-    spawner.spawn(display_task(display)).ok();
+    spawner.spawn(display_task(display).unwrap());
 }
 
 pub async fn draw_image(image: RawImage<'_>, display: &mut OledDisplay<'_>) {

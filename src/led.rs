@@ -1,44 +1,40 @@
-use core::sync::atomic::{AtomicBool, Ordering};
-
 use embassy_executor::{Spawner, task};
-use embassy_time::{Duration, Timer};
+use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, signal::Signal};
 use esp_hal::{
     gpio::{Level, Output, OutputConfig},
     peripherals::GPIO2,
 };
 use picoserve::{extract::Json, response::IntoResponse};
+use serde::Deserialize;
 
-pub static LED_STATE: AtomicBool = AtomicBool::new(false);
+use crate::server::SuccessResponse;
 
-#[derive(serde::Deserialize)]
+pub static LED_STATE: Signal<CriticalSectionRawMutex, bool> = Signal::new();
+
+#[derive(Deserialize)]
 pub struct LedRequest {
     is_on: bool,
 }
 
-#[derive(serde::Serialize)]
-struct LedResponse {
-    success: bool,
-}
-
 pub async fn led_handler(input: Json<LedRequest>) -> impl IntoResponse {
-    LED_STATE.store(input.0.is_on, Ordering::Relaxed);
+    LED_STATE.signal(input.0.is_on);
 
-    Json(LedResponse { success: true })
+    Json(SuccessResponse { success: true })
 }
 
 pub fn setup_led(led_pin: GPIO2<'static>, spawner: Spawner) {
     let led = Output::new(led_pin, Level::Low, OutputConfig::default());
-    spawner.must_spawn(led_task(led));
+    spawner.spawn(led_task(led).unwrap());
 }
 
 #[task]
 async fn led_task(mut led: Output<'static>) {
     loop {
-        if LED_STATE.load(Ordering::Relaxed) {
+        let led_on = LED_STATE.wait().await;
+        if led_on {
             led.set_high();
         } else {
             led.set_low();
         }
-        Timer::after(Duration::from_millis(50)).await;
     }
 }
