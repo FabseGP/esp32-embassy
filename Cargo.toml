@@ -3,7 +3,7 @@ cargo-features = ["panic-immediate-abort"]
 [package]
 edition      = "2024"
 name         = "fabseesp"
-rust-version = "1.93"
+rust-version = "1.95"
 version      = "0.1.0"
 
 [dependencies]
