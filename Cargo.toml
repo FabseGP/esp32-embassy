@@ -3,7 +3,6 @@ cargo-features = ["panic-immediate-abort"]
 [package]
 edition      = "2024"
 name         = "fabseesp"
-rust-version = "1.95"
 version      = "0.1.0"
 
 [dependencies]
@@ -37,6 +36,8 @@ esp-radio = { git = "https://github.com/esp-rs/esp-hal.git", features = [
     "esp-alloc",
     "unstable",
 ] }
+esp-storage = { git = "https://github.com/esp-rs/esp-hal.git", features = ["defmt"] }
+esp-hal-ota = { git = "https://github.com/lampaBiurkowa/esp-hal-ota.git", features = ["defmt"] }
 static_cell = { version = "2.1.1", features = ["nightly"] }
 picoserve = { version = "0.18.0", features = ["embassy", "defmt", "json"] }
 ssd1306 = { version = "0.10.0", features = ["async"] }
@@ -67,6 +68,7 @@ embassy-futures = { version = "0.1.2", features = ["defmt"] }
 trouble-host = { version = "0.6.0", features = ["gatt", "defmt", "derive"], optional = true }
 bt-hci = { version = "0.8.1", features = ["defmt"], optional = true }
 embedded-hal = "1.0.0"
+rust-mqtt = { version = "0.5.1", features = ["defmt"] }
 
 [build-dependencies]
 dotenvy = "0.15.7"
@@ -101,6 +103,8 @@ esp32 = [
     "esp-bootloader-esp-idf/esp32",
     "esp-rtos/esp32",
     "esp-hal/esp32",
+    "esp-storage/esp32",
+    "esp-hal-ota/esp32",
     "esp-radio/esp32",
     "esp-radio/ble",
     "esp-println/esp32",

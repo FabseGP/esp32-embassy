@@ -1,6 +1,4 @@
-#![feature(type_alias_impl_trait)]
 #![feature(impl_trait_in_assoc_type)]
-#![feature(stmt_expr_attributes)]
 #![no_std]
 #![no_main]
 
@@ -39,6 +37,7 @@ cfg_select! {
     feature = "esp32" => {
         // mod bluetooth;
         mod motors;
+        mod mqtt;
         use esp_hal::rng::Rng;
         use crate::{server::setup_server, wifi::start_wifi, motors::setup_motors};
         // use crate::{bluetooth::start_bluetooth, led::setup_led};
@@ -72,12 +71,15 @@ async fn main(spawner: Spawner) {
             );
         }
         feature = "esp32" => {
+            // setup_ota(peripherals.FLASH);
             // setup_led(peripherals.GPIO2, spawner);
             // start_bluetooth(peripherals.BT).await;
             setup_motors(peripherals.LEDC, peripherals.GPIO32, peripherals.GPIO33, spawner);
             let rng = Rng::new();
             let stack = start_wifi(peripherals.WIFI, rng, &spawner).await;
+            let mqtt_receiver = mqtt::TELEMETRY_CHANNEL.receiver();
             setup_server(spawner, stack);
+            spawner.spawn(mqtt::mqtt_task(stack, mqtt_receiver).unwrap());
         }
         _ => {}
     }

@@ -1,0 +1,25 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":semanticCommits",
+    ":semanticCommitScope(deps)"
+  ],
+  "configMigration": true,
+  "env": {
+    "IGNORED_TOOLS": "rust"
+  },
+  "assignees": [
+    "fabseman"
+  ],
+  "labels": [
+    "renovate"
+  ],
+  "cargo": {
+    "vulnerabilityAlerts": {
+      "addLabels": [
+        "security"
+      ]
+    }
+  }
+}

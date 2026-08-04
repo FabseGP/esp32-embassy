@@ -1,7 +1,7 @@
-use defmt::info;
 use embassy_executor::{Spawner, task};
 use embassy_futures::select::{Either, select};
 use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, signal::Signal};
+use embassy_time::Timer as AsyncTimer;
 use embedded_hal::pwm::SetDutyCycle;
 use esp_hal::{
     gpio::DriveMode,
@@ -102,21 +102,25 @@ async fn motors_task(
     let servo_duty = duty_from_angle(90, servo_min, servo_gap);
     channel0.set_duty_cycle(servo_duty).unwrap();
 
-    let motor_min = (1500 * channel1_max) / 20000;
-    let motor_max = (1000 * channel1_max) / 20000;
+    let motor_min = (1000 * channel1_max) / 20000;
+    let motor_max = (2000 * channel1_max) / 20000;
+    let neutral = (1500 * channel1_max) / 20000;
+
     channel1.set_duty_cycle(motor_min as u16).unwrap();
+    AsyncTimer::after_millis(2000).await;
+    channel1.set_duty_cycle(neutral as u16).unwrap();
+    AsyncTimer::after_millis(2000).await;
+    channel1.set_duty_cycle(150).unwrap();
 
     loop {
         match select(SERVO_STATE.wait(), MOTOR_STATE.wait()).await {
             Either::First(servo_value) => {
-                info!("{}", servo_value);
                 let duty = duty_from_angle(servo_value, servo_min, servo_gap);
                 channel0.set_duty_cycle(duty).unwrap();
             }
             Either::Second(motor_value) => {
-                info!("{}", motor_value);
-                let duty = motor_min + (motor_value * (motor_max - motor_min) / 10);
-                channel1.set_duty_cycle(duty as u16).unwrap();
+                //  let duty = motor_min + (motor_value * (motor_max - motor_min) / 10);
+                channel1.set_duty_cycle(motor_value as u16).unwrap();
             }
         }
     }

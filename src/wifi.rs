@@ -6,14 +6,16 @@ use embassy_net::{
     Config as NetConfig, DhcpConfig, Runner, Stack, StackResources,
     dns::DnsSocket,
     new as new_net,
-    tcp::client::{TcpClient, TcpClientState},
+    tcp::{
+        Error as TCPError, TcpSocket,
+        client::{TcpClient, TcpClientState},
+    },
 };
 use embassy_time::Timer;
 use esp_backtrace as _;
 use esp_hal::{peripherals::WIFI, rng::Rng};
 use esp_radio::wifi::{
-    AccessPointStationEventInfo, Config, ControllerConfig, Interface, WifiController,
-    new as new_wifi, sta::StationConfig,
+    Config, ControllerConfig, Interface, WifiController, ap::EventInfo, sta::StationConfig,
 };
 use reqwless::{
     client::HttpClient,
@@ -30,12 +32,12 @@ pub async fn start_wifi(wifi: WIFI<'static>, rng: Rng, spawner: &Spawner) -> Sta
             .with_password(env!("WIFI_PASS").to_owned()),
     );
 
-    let (wifi_controller, interfaces) = new_wifi(
+    let wifi_controller = WifiController::new(
         wifi,
         ControllerConfig::default().with_initial_config(station_config),
     )
     .expect("Failed to initialize Wi-Fi controller");
-    let wifi_interface = interfaces.station;
+    let wifi_interface = Interface::station();
 
     let net_seed = u64::from(rng.random()) | ((u64::from(rng.random())) << 32);
 
@@ -83,17 +85,13 @@ async fn connection(mut controller: WifiController<'static>) {
                     Either::Second(event) => {
                         if let Ok(event) = event {
                             match event {
-                                AccessPointStationEventInfo::Connected(
-                                    access_point_station_connected_info,
-                                ) => {
+                                EventInfo::Connected(access_point_station_connected_info) => {
                                     info!(
                                         "Station connected: {:?}",
                                         access_point_station_connected_info
                                     );
                                 }
-                                AccessPointStationEventInfo::Disconnected(
-                                    access_point_station_disconnected_info,
-                                ) => {
+                                EventInfo::Disconnected(access_point_station_disconnected_info) => {
                                     info!(
                                         "Station disconnected: {:?}",
                                         access_point_station_disconnected_info
@@ -113,7 +111,7 @@ async fn connection(mut controller: WifiController<'static>) {
 }
 
 #[task]
-async fn net_task(mut runner: Runner<'static, Interface<'static>>) {
+async fn net_task(mut runner: Runner<'static, Interface>) {
     runner.run().await;
 }
 
@@ -137,4 +135,17 @@ async fn access_website(stack: Stack<'_>) {
     if let Err(err) = http.basic_auth("test", "test").send(&mut buffer).await {
         error!("Failed to send request: {}", err);
     }
+}
+
+pub async fn read_exact(socket: &mut TcpSocket<'_>, mut buf: &mut [u8]) -> Result<(), TCPError> {
+    while !buf.is_empty() {
+        match socket.read(buf).await {
+            Ok(0) => return Err(TCPError::ConnectionReset),
+            Ok(n) => {
+                buf = &mut buf[n..];
+            }
+            Err(e) => return Err(e),
+        }
+    }
+    Ok(())
 }
