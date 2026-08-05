@@ -1662,7 +1662,7 @@ dependencies = [
 name = "fabseesp"
 version = "0.1.0"
 dependencies = [
- "bt-hci 0.8.1",
+ "bt-hci 0.9.0",
  "defmt 1.1.1",
  "dotenvy",
  "embassy-executor",
