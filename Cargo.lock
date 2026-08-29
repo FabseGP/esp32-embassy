@@ -176,9 +176,9 @@ dependencies = [
 
 [[package]]
 name = "bt-hci"
-version = "0.8.1"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "211713d2e9fb4793ce4360a712c0764264aff6be48932ccf02ca2a331c0436a9"
+checksum = "8f3c66fd0a41a3b3a5906847b1bf5516048ce083e24fa9341a0fa31d3b4cd73d"
 dependencies = [
  "btuuid",
  "defmt 1.1.1",
@@ -191,10 +191,11 @@ dependencies = [
 
 [[package]]
 name = "bt-hci"
-version = "0.9.0"
+version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8f3c66fd0a41a3b3a5906847b1bf5516048ce083e24fa9341a0fa31d3b4cd73d"
+checksum = "f63b3d6f0ef006d9b87a075705d6c142b03681ad34090659647f0e227c1c667f"
 dependencies = [
+ "bt-hci-transport",
  "btuuid",
  "defmt 1.1.1",
  "embassy-sync 0.8.0",
@@ -3241,19 +3242,18 @@ dependencies = [
 
 [[package]]
 name = "trouble-host"
-version = "0.6.0"
+version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1df7817cead4b83dfbeeaa59736ecbc97c30b21dc3bfc0cc2ce8a6687f70b37a"
+checksum = "19a566cc37ceaff5cc2a6ff8cc02debd1ee6b95d59ced8830d005da8b080cbe9"
 dependencies = [
- "bt-hci 0.8.1",
+ "bt-hci 0.10.1",
  "defmt 1.1.1",
  "embassy-futures",
- "embassy-sync 0.7.2",
+ "embassy-sync 0.8.0",
  "embassy-time",
  "embedded-io 0.7.1",
  "futures",
  "heapless 0.9.3",
- "rand_core 0.6.4",
  "static_cell",
  "trouble-host-macros",
  "zerocopy",
@@ -3261,9 +3261,9 @@ dependencies = [
 
 [[package]]
 name = "trouble-host-macros"
-version = "0.4.0"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2d809ae05f510cf8f1d863749281eb28e049d9ae4ad52d92ea7a0ac068a0e17c"
+checksum = "cbabd47f6c65856f670fd2a1857fb9d40f978bfc81aed431f8689b8a4506b2fe"
 dependencies = [
  "convert_case",
  "darling 0.20.11",
