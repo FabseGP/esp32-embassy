@@ -205,6 +205,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "bt-hci"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0048816dbf43511d51f46514fada281890aa0190ada5170cf7bbb66259b611e7"
+dependencies = [
+ "bt-hci-transport",
+ "btuuid",
+ "defmt 1.1.1",
+ "embassy-sync 0.8.0",
+ "embedded-io 0.7.1",
+ "embedded-io-async 0.7.0",
+ "futures-intrusive",
+ "heapless 0.9.3",
+]
+
+[[package]]
 name = "bt-hci-transport"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1662,7 +1678,7 @@ dependencies = [
 name = "fabseesp"
 version = "0.1.0"
 dependencies = [
- "bt-hci 0.9.0",
+ "bt-hci 0.11.0",
  "defmt 1.1.1",
  "dotenvy",
  "embassy-executor",
